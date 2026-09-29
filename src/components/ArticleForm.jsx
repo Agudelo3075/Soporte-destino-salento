@@ -288,40 +288,25 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
           />
         </div>
 
-        {/* Categoría y Estado */}
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <select
-              name="category"
-              className="form-select"
-              value={formData.category}
-              onChange={handleInputChange}
-            >
-              <option value="Rutas e Itinerarios">Rutas e Itinerarios</option>
-              <option value="Guías Completas">Guías Completas</option>
-              <option value="Ecoturismo">Ecoturismo</option>
-              <option value="Gastronomía y Café">Gastronomía y Café</option>
-              <option value="Logística y Transporte">Logística y Transporte</option>
-              <option value="Alojamiento">Alojamiento</option>
-              <option value="Patrimonio y Cultura">Patrimonio y Cultura</option>
-              <option value="Clima y Temporadas">Clima y Temporadas</option>
-              <option value="Guías Rápidas">Guías Rápidas</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Estado de Publicación</label>
-            <select
-              name="status"
-              className="form-select"
-              value={formData.status}
-              onChange={handleInputChange}
-            >
-              <option value="publicado">Publicado (Listo)</option>
-              <option value="borrador">Borrador</option>
-            </select>
-          </div>
+        {/* Categoría */}
+        <div className="form-group">
+          <label className="form-label">Categoría</label>
+          <select
+            name="category"
+            className="form-select"
+            value={formData.category}
+            onChange={handleInputChange}
+          >
+            <option value="Rutas e Itinerarios">Rutas e Itinerarios</option>
+            <option value="Guías Completas">Guías Completas</option>
+            <option value="Ecoturismo">Ecoturismo</option>
+            <option value="Gastronomía y Café">Gastronomía y Café</option>
+            <option value="Logística y Transporte">Logística y Transporte</option>
+            <option value="Alojamiento">Alojamiento</option>
+            <option value="Patrimonio y Cultura">Patrimonio y Cultura</option>
+            <option value="Clima y Temporadas">Clima y Temporadas</option>
+            <option value="Guías Rápidas">Guías Rápidas</option>
+          </select>
         </div>
 
         {/* Párrafo Principal / Introducción (<p>) */}
@@ -568,6 +553,20 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
               <img src={formData.imageUrl} alt="Vista previa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
+        </div>
+
+        {/* Estado de Publicación */}
+        <div className="form-group">
+          <label className="form-label">Estado de Publicación</label>
+          <select
+            name="status"
+            className="form-select"
+            value={formData.status}
+            onChange={handleInputChange}
+          >
+            <option value="publicado">Publicado (Listo)</option>
+            <option value="borrador">Borrador</option>
+          </select>
         </div>
 
         {/* Action Buttons */}
