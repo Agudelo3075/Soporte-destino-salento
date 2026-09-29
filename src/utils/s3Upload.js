@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 // Obtener credenciales desde las variables de entorno de Vite
 const getS3Config = () => {
@@ -64,6 +64,59 @@ const detectBucketFolder = (file, explicitFolder) => {
 };
 
 /**
+ * Crea un cliente S3 con las credenciales de la config actual
+ */
+const createClient = (config) => {
+  return new S3Client({
+    region: config.region,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey
+    }
+  });
+};
+
+/**
+ * Construye la URL pública de un objeto del bucket, respetando el dominio personalizado
+ */
+export const buildS3PublicUrl = (fileKey, config = getS3Config()) => {
+  if (config.customDomain) {
+    const baseUrl = config.customDomain.endsWith('/')
+      ? config.customDomain.slice(0, -1)
+      : config.customDomain;
+    return `${baseUrl}/${fileKey}`;
+  }
+  return `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${fileKey}`;
+};
+
+/**
+ * Extrae la clave (Key) de un objeto a partir de su URL pública.
+ * Devuelve null si la URL no pertenece a este bucket (por ejemplo, una imagen externa)
+ */
+const extractS3KeyFromUrl = (url, config) => {
+  if (!url || typeof url !== 'string') return null;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return null;
+
+  const bucketBases = [
+    `https://${config.bucketName}.s3.${config.region}.amazonaws.com`,
+    `https://s3.${config.region}.amazonaws.com/${config.bucketName}`,
+    `https://${config.bucketName}.s3.amazonaws.com`
+  ];
+
+  if (config.customDomain) {
+    bucketBases.unshift(config.customDomain.endsWith('/') ? config.customDomain.slice(0, -1) : config.customDomain);
+  }
+
+  for (const base of bucketBases) {
+    if (url.startsWith(`${base}/`)) {
+      return decodeURIComponent(url.slice(base.length + 1));
+    }
+  }
+
+  return null;
+};
+
+/**
  * Sube un archivo a AWS S3 respetando las carpetas del bucket (images, documents, videos)
  * @param {File} file Archivo a subir
  * @param {string} customFolder Carpeta personalizada opcional (ej: 'images', 'documents', 'videos')
@@ -85,13 +138,7 @@ export const uploadFileToS3 = async (file, customFolder = null) => {
   const cleanFileName = file.name.toLowerCase().replace(/[^a-z0-9.]/g, '-');
   const fileKey = `${targetFolder}/${timestamp}-${cleanFileName}`;
 
-  const client = new S3Client({
-    region: config.region,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey
-    }
-  });
+  const client = createClient(config);
 
   const fileBytes = await fileToBuffer(file);
 
@@ -105,16 +152,7 @@ export const uploadFileToS3 = async (file, customFolder = null) => {
   try {
     await client.send(command);
 
-    // Si hay dominio personalizado (CloudFront o CNAME)
-    if (config.customDomain) {
-      const baseUrl = config.customDomain.endsWith('/') 
-        ? config.customDomain.slice(0, -1) 
-        : config.customDomain;
-      return `${baseUrl}/${fileKey}`;
-    }
-
-    // URL oficial de AWS S3 con la subcarpeta images/, documents/ o videos/
-    return `https://${config.bucketName}.s3.${config.region}.amazonaws.com/${fileKey}`;
+    return buildS3PublicUrl(fileKey, config);
   } catch (error) {
     console.error('Error detallado al subir archivo a AWS S3:', error);
     
@@ -134,5 +172,47 @@ export const uploadFileToS3 = async (file, customFolder = null) => {
     }
     
     throw new Error(`Error al subir a S3 (${targetFolder}/): ${error.message}`);
+  }
+};
+
+/**
+ * Elimina un objeto del bucket de S3 a partir de su URL pública.
+ * Solo borra archivos que pertenezcan a este bucket: si la URL es externa
+ * (ej. Unsplash) o una vista previa local en base64, no hace nada.
+ * @param {string} url URL pública del archivo a eliminar
+ * @returns {Promise<boolean>} true si el objeto fue eliminado
+ */
+export const deleteFileFromS3 = async (url) => {
+  const config = getS3Config();
+
+  if (!config.isConfigured) {
+    throw new Error(
+      'Configuración de S3 incompleta en .env. Verifica VITE_AWS_ACCESS_KEY_ID, VITE_AWS_SECRET_ACCESS_KEY y VITE_AWS_BUCKET_NAME.'
+    );
+  }
+
+  const fileKey = extractS3KeyFromUrl(url, config);
+
+  // No es un archivo de este bucket: nada que borrar
+  if (!fileKey) return false;
+
+  const client = createClient(config);
+
+  try {
+    await client.send(new DeleteObjectCommand({
+      Bucket: config.bucketName,
+      Key: fileKey
+    }));
+
+    console.log(`Archivo eliminado de S3: ${fileKey}`);
+    return true;
+  } catch (error) {
+    console.error('Error detallado al eliminar archivo de AWS S3:', error);
+
+    if (error.name === 'AccessDenied' || error.name === 'InvalidAccessKeyId') {
+      throw new Error('Credenciales de AWS inválidas o sin permisos de eliminación. Verifica tu ACCESS_KEY_ID y SECRET_ACCESS_KEY en .env');
+    }
+
+    throw new Error(`Error al eliminar de S3 (${fileKey}): ${error.message}`);
   }
 };

@@ -54,12 +54,10 @@ export default function ExportSelectionModal({ articles, onClose, onConfirmExpor
         </div>
 
         <div className="modal-body">
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-            Elige los artículos que quieres descargar. Solo se exportarán los que dejes marcados.
-          </p>
+          <p className="modal-hint">Elige los artículos que quieres descargar. Solo se exportarán los que dejes marcados.</p>
 
           {/* Search & Filters */}
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="toolbar-row">
             <div style={{ position: 'relative', flex: 1 }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
@@ -73,8 +71,7 @@ export default function ExportSelectionModal({ articles, onClose, onConfirmExpor
             </div>
 
             <select
-              className="form-select"
-              style={{ width: '150px' }}
+              className="form-select toolbar-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -127,7 +124,7 @@ export default function ExportSelectionModal({ articles, onClose, onConfirmExpor
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <div className="modal-actions">
             <button className="btn btn-secondary" onClick={onClose}>
               <span>Cancelar</span>
             </button>

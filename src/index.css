@@ -729,6 +729,61 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none;
 }
 
+/* Layout Utilities */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.form-field-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar-row > * {
+  min-width: 0;
+}
+
+.toolbar-select {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modal-hint {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
 .preview-tags-list {
   display: flex;
   flex-wrap: wrap;
@@ -736,4 +791,262 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============ Responsive ============ */
+
+/* Tablet */
+@media (max-width: 900px) {
+  .app-container {
+    padding: 16px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+
+  .header-actions .btn {
+    flex: 1 1 160px;
+  }
+
+  .brand-subtitle {
+    font-size: 0.78rem;
+  }
+
+  .progress-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .progress-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .panel-card {
+    padding: 18px;
+  }
+
+  .articles-scroll-container {
+    max-height: 60vh;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+    align-items: flex-start;
+  }
+
+  .modal-content {
+    max-height: 94vh;
+  }
+
+  .modal-body {
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .export-list {
+    max-height: 50vh;
+  }
+
+  .blog-reader-preview {
+    padding: 20px;
+  }
+
+  .preview-h1 {
+    font-size: 1.45rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 12px;
+  }
+
+  .app-header {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+  }
+
+  .header-brand {
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    border-radius: 10px;
+  }
+
+  .brand-title {
+    font-size: 1.15rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions .btn {
+    width: 100%;
+  }
+
+  .btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  .progress-card,
+  .panel-card {
+    padding: 14px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+  }
+
+  .progress-title {
+    font-size: 0.95rem;
+  }
+
+  .panel-title {
+    font-size: 1.05rem;
+  }
+
+  /* Evita el zoom automático de iOS al enfocar un campo */
+  .form-input,
+  .form-textarea,
+  .form-select {
+    font-size: 1rem;
+    padding: 12px 14px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .form-field-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-row {
+    flex-direction: column;
+  }
+
+  .toolbar-select {
+    width: 100%;
+  }
+
+  .form-actions,
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions .btn,
+  .modal-actions .btn {
+    width: 100%;
+  }
+
+  .content-blocks-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .export-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .export-toolbar .btn {
+    width: 100%;
+  }
+
+  .export-counter {
+    text-align: center;
+  }
+
+  .export-option {
+    flex-wrap: wrap;
+  }
+
+  .modal-overlay {
+    padding: 8px;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .modal-body {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .article-item-card {
+    padding: 12px;
+  }
+
+  .article-item-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .article-item-top .article-status-pill {
+    align-self: flex-start;
+  }
+
+  .article-item-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .article-item-footer .btn {
+    min-width: 40px;
+  }
+
+  .block-item {
+    padding: 12px;
+  }
+
+  .tags-wrapper {
+    padding: 8px;
+  }
+
+  .blog-reader-preview {
+    padding: 16px;
+  }
+}
+
+/* Pantallas muy pequeñas */
+@media (max-width: 400px) {
+  .app-container {
+    padding: 8px;
+  }
+
+  .progress-stats-grid {
+    gap: 6px;
+  }
+
+  .stat-badge {
+    padding: 8px 6px;
+  }
+
+  .stat-label {
+    font-size: 0.62rem;
+  }
 }

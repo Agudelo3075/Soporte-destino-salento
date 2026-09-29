@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Heading1, 
   Heading2, 
@@ -21,7 +21,7 @@ import {
   HelpCircle,
   FileImage
 } from 'lucide-react';
-import { uploadFileToS3, getS3ConfigStatus } from '../utils/s3Upload';
+import { uploadFileToS3, deleteFileFromS3, getS3ConfigStatus } from '../utils/s3Upload';
 
 const PRESET_TAGS = [
   "Ruta por Colombia",
@@ -75,11 +75,16 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
   const [s3SuccessMsg, setS3SuccessMsg] = useState('');
   const [showCorsHelp, setShowCorsHelp] = useState(false);
   const [copiedCors, setCopiedCors] = useState(false);
-  
+  const [cleanupMsg, setCleanupMsg] = useState('');
+
+  // URL de la imagen que ya está guardada en S3 (para borrarla si se reemplaza)
+  const savedImageUrlRef = useRef(null);
+
   const s3Status = getS3ConfigStatus();
 
   useEffect(() => {
     if (articleToEdit) {
+      savedImageUrlRef.current = articleToEdit.imageUrl || null;
       setFormData({
         id: articleToEdit.id || null,
         h1Title: articleToEdit.h1Title || '',
@@ -186,6 +191,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
     setIsSubmitting(true);
     setS3ErrorMsg('');
     setS3SuccessMsg('');
+    setCleanupMsg('');
 
     let finalImageUrl = formData.imageUrl;
 
@@ -208,12 +214,27 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
       }
     }
 
+    // Si la imagen cambió, la anterior se elimina del bucket para no dejar archivos huérfanos
+    const previousImageUrl = savedImageUrlRef.current;
+    if (previousImageUrl && previousImageUrl !== finalImageUrl && s3Status.isConfigured) {
+      try {
+        const wasDeleted = await deleteFileFromS3(previousImageUrl);
+        if (wasDeleted) {
+          console.log(`Imagen anterior eliminada de S3: ${previousImageUrl}`);
+        }
+      } catch (deleteErr) {
+        console.error('No se pudo eliminar la imagen anterior de S3:', deleteErr);
+        setCleanupMsg(`El artículo se guardó, pero la imagen anterior no se pudo eliminar de S3: ${deleteErr.message}`);
+      }
+    }
+
     const updatedArticleData = {
       ...formData,
       imageUrl: finalImageUrl
     };
 
     onSaveArticle(updatedArticleData);
+    savedImageUrlRef.current = finalImageUrl;
     setPendingImageFile(null);
     setIsSubmitting(false);
     setSaveSuccessMsg(true);
@@ -268,7 +289,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
         </div>
 
         {/* Categoría y Estado */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div className="form-row">
           <div className="form-group">
             <label className="form-label">Categoría</label>
             <select
@@ -429,7 +450,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
 
         {/* Imagen Relacionada & Selección local (Se sube a S3 al guardar) */}
         <div className="form-group">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="form-section-header">
             <label className="form-label">
               <ImageIcon size={16} />
               <span>Imagen Relacionada</span>
@@ -443,7 +464,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="form-field-row">
             <input
               type="text"
               name="imageUrl"
@@ -481,6 +502,13 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
             <div style={{ fontSize: '0.8rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
               <FolderCheck size={14} />
               <span>{s3SuccessMsg}</span>
+            </div>
+          )}
+
+          {cleanupMsg && (
+            <div style={{ fontSize: '0.8rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+              <AlertCircle size={14} />
+              <span>{cleanupMsg}</span>
             </div>
           )}
 
@@ -543,7 +571,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '12px' }}>
+        <div className="form-actions">
           <button
             type="button"
             className="btn btn-secondary"

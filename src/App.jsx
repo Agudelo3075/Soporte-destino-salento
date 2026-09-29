@@ -5,7 +5,6 @@ import ArticleForm from './components/ArticleForm';
 import ArticleList from './components/ArticleList';
 import ArticlePreviewModal from './components/ArticlePreviewModal';
 import ExportSelectionModal from './components/ExportSelectionModal';
-import { initialArticles, generate30ArticlesList } from './data/initialArticles';
 
 export default function App() {
   const [articles, setArticles] = useState(() => {
@@ -17,7 +16,7 @@ export default function App() {
         console.error('Error loading saved articles', e);
       }
     }
-    return generate30ArticlesList();
+    return [];
   });
 
   const [editingArticle, setEditingArticle] = useState(null);

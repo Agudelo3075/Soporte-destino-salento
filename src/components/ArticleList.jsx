@@ -78,7 +78,7 @@ export default function ArticleList({
       </div>
 
       {/* Search & Filters */}
-      <div style={{ display: 'flex', gap: '10px' }}>
+      <div className="toolbar-row">
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -92,8 +92,7 @@ export default function ArticleList({
         </div>
 
         <select
-          className="form-select"
-          style={{ width: '150px' }}
+          className="form-select toolbar-select"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -154,7 +153,7 @@ export default function ArticleList({
                   {art.createdAt || 'Reciente'}
                 </span>
 
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   <button
                     className="btn btn-secondary btn-sm"
                     title="Copiar en Markdown"
