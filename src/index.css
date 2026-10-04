@@ -385,9 +385,20 @@ h1, h2, h3, h4, h5, h6 {
 /* Dynamic Content Block Manager */
 .content-blocks-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   margin-top: 8px;
+}
+
+.content-blocks-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.content-blocks-actions .btn {
+  white-space: nowrap;
 }
 
 .block-item {
@@ -428,6 +439,136 @@ h1, h2, h3, h4, h5, h6 {
 .badge-list {
   background: rgba(168, 85, 247, 0.2);
   color: #d8b4fe;
+}
+
+.badge-links {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+/* Cajón de Enlaces */
+.links-drawer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.links-drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.links-drawer-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.links-drawer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.links-drawer-preview,
+.links-drawer-alert,
+.links-drawer-warn,
+.links-drawer-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.links-drawer-preview {
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.links-drawer-alert {
+  color: #f87171;
+}
+
+.links-drawer-warn,
+.links-drawer-hint {
+  color: #fbbf24;
+}
+
+.links-drawer-add {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.links-drawer-remove {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 6px;
+  color: #f87171;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.links-drawer-remove:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: #f87171;
+}
+
+/* Cajón de Enlaces en la vista previa */
+.preview-links-box {
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.06);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.preview-links-box ul {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-links-box a {
+  color: #34d399;
+  text-decoration: underline;
+  word-break: break-all;
+  display: inline-block;
+  padding: 4px 0;
+}
+
+.preview-links-box a:hover {
+  color: #6ee7b7;
+}
+
+.preview-links-broken,
+.preview-links-draft {
+  color: #f87171;
+  font-size: 0.82rem;
+}
+
+.preview-links-broken {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.preview-links-draft {
+  color: #fbbf24;
 }
 
 /* Article Cards List */
@@ -964,6 +1105,11 @@ h1, h2, h3, h4, h5, h6 {
     gap: 8px;
   }
 
+  /* Objetivo táctil mínimo en móvil */
+  .content-blocks-actions .btn {
+    min-height: 44px;
+  }
+
   .export-toolbar {
     flex-direction: column;
     align-items: stretch;
@@ -1023,6 +1169,20 @@ h1, h2, h3, h4, h5, h6 {
     padding: 12px;
   }
 
+  .links-drawer-row {
+    flex: 1 1 100%;
+  }
+
+  /* En móvil el botón "Añadir enlace" no cabe junto al input: ancho completo */
+  .links-drawer-add {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .preview-links-box a {
+    padding: 10px 0;
+  }
+
   .tags-wrapper {
     padding: 8px;
   }
@@ -1048,5 +1208,10 @@ h1, h2, h3, h4, h5, h6 {
 
   .stat-label {
     font-size: 0.62rem;
+  }
+
+  .content-blocks-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 }

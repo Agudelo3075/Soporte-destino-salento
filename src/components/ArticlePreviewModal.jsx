@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Calendar, User, Tag, Share2, Download, Copy, Check } from 'lucide-react';
+import { X, Calendar, User, Tag, Share2, Download, Copy, Check, AlertTriangle } from 'lucide-react';
+import { linksToMarkdown, resolveLinks } from '../utils/links';
 
-export default function ArticlePreviewModal({ article, onClose }) {
+export default function ArticlePreviewModal({ article, articles = [], onClose }) {
   const [copied, setCopied] = React.useState(false);
 
   if (!article) return null;
@@ -18,6 +19,10 @@ export default function ArticlePreviewModal({ article, onClose }) {
         else if (b.type === 'list' && Array.isArray(b.items)) {
           b.items.forEach(it => md += `- ${it}\n`);
           md += `\n`;
+        }
+        else if (b.type === 'links' && Array.isArray(b.links)) {
+          const mdLinks = linksToMarkdown(b, articles);
+          if (mdLinks) md += `${mdLinks}\n\n`;
         }
       });
     }
@@ -108,6 +113,33 @@ export default function ArticlePreviewModal({ article, onClose }) {
                       <li key={iIdx} style={{ color: '#d1d5db', lineHeight: '1.6' }}>{item}</li>
                     ))}
                   </ul>
+                );
+              }
+              if (block.type === 'links') {
+                const links = resolveLinks(block, articles).filter(l => !l.empty);
+                if (links.length === 0) return null;
+                return (
+                  <div key={idx} className="preview-links-box">
+                    <ul>
+                      {links.map((link, lIdx) => (
+                        <li key={lIdx} style={{ lineHeight: '1.6' }}>
+                          {link.broken ? (
+                            <span className="preview-links-broken">
+                              <AlertTriangle size={14} />
+                              Enlace roto: el artículo destino no existe ({link.missingId})
+                            </span>
+                          ) : (
+                            <a href={link.url} target="_blank" rel="noopener noreferrer">
+                              {link.text}
+                            </a>
+                          )}
+                          {link.draft && !link.broken && (
+                            <span className="preview-links-draft"> (destino en borrador)</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 );
               }
               return null;

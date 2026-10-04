@@ -19,9 +19,38 @@ import {
   FolderCheck,
   Copy,
   HelpCircle,
-  FileImage
+  FileImage,
+  Link2,
+  Unlink,
+  FileText,
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import { uploadFileToS3, deleteFileFromS3, getS3ConfigStatus } from '../utils/s3Upload';
+import {
+  EXTERNAL_LINK,
+  isInternalLink,
+  resolveLink,
+  sanitizeLinksBlock,
+  findBrokenLinks
+} from '../utils/links';
+
+const EMPTY_LINK = {};
+
+const createLinksBlock = () => ({
+  type: 'links',
+  links: [{ ...EMPTY_LINK }]
+});
+
+// Garantiza que todo cajón de enlaces tenga un array válido de enlaces al cargar/importar
+const normalizeContentBlocks = (blocks) => {
+  if (!Array.isArray(blocks)) return undefined;
+  return blocks.map(b =>
+    b.type === 'links'
+      ? { ...b, links: Array.isArray(b.links) ? b.links : [] }
+      : b
+  );
+};
 
 const PRESET_TAGS = [
   "Ruta por Colombia",
@@ -50,7 +79,7 @@ const CORS_POLICY_JSON = `[
   }
 ]`;
 
-export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArticle, onResetForm }) {
+export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArticle, onResetForm, articles = [] }) {
   const [formData, setFormData] = useState({
     id: null,
     h1Title: '',
@@ -76,11 +105,21 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
   const [showCorsHelp, setShowCorsHelp] = useState(false);
   const [copiedCors, setCopiedCors] = useState(false);
   const [cleanupMsg, setCleanupMsg] = useState('');
+  const [linksMsg, setLinksMsg] = useState('');
 
   // URL de la imagen que ya está guardada en S3 (para borrarla si se reemplaza)
   const savedImageUrlRef = useRef(null);
 
   const s3Status = getS3ConfigStatus();
+
+  // Artículos que se pueden usar como destino de un enlace (la colección, sin el propio artículo)
+  const linkTargets = articles
+    .filter(a => a.id !== formData.id)
+    .map(a => ({
+      id: a.id,
+      label: `${a.h1Title} · ${a.category || 'Sin categoría'}${a.status !== 'publicado' ? ' (borrador)' : ''}`
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 
   useEffect(() => {
     if (articleToEdit) {
@@ -95,7 +134,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
         imageUrl: articleToEdit.imageUrl || '',
         imageCaption: articleToEdit.imageCaption || '',
         tags: articleToEdit.tags || [],
-        contentBlocks: articleToEdit.contentBlocks || [
+        contentBlocks: normalizeContentBlocks(articleToEdit.contentBlocks) || [
           { type: 'h2', text: '' },
           { type: 'paragraph', text: '' }
         ]
@@ -134,7 +173,10 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
   const handleAddBlock = (type) => {
     setFormData(prev => ({
       ...prev,
-      contentBlocks: [...prev.contentBlocks, { type, text: '' }]
+      contentBlocks: [
+        ...prev.contentBlocks,
+        type === 'links' ? createLinksBlock() : { type, text: '' }
+      ]
     }));
   };
 
@@ -149,6 +191,55 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
       ...prev,
       contentBlocks: prev.contentBlocks.filter((_, i) => i !== index)
     }));
+  };
+
+  // Cajón de Enlaces
+  const handleAddLink = (blockIndex) => {
+    const updated = [...formData.contentBlocks];
+    const block = updated[blockIndex];
+    updated[blockIndex] = {
+      ...block,
+      links: [...(block.links || []), { ...EMPTY_LINK }]
+    };
+    setFormData(prev => ({ ...prev, contentBlocks: updated }));
+  };
+
+  const handleLinkChange = (blockIndex, linkIndex, field, value) => {
+    const updated = [...formData.contentBlocks];
+    const block = updated[blockIndex];
+    const links = [...(block.links || [])];
+    links[linkIndex] = { ...links[linkIndex], [field]: value };
+    updated[blockIndex] = { ...block, links };
+    setFormData(prev => ({ ...prev, contentBlocks: updated }));
+  };
+
+  const handleRemoveLink = (blockIndex, linkIndex) => {
+    const updated = [...formData.contentBlocks];
+    const block = updated[blockIndex];
+    updated[blockIndex] = {
+      ...block,
+      links: (block.links || []).filter((_, i) => i !== linkIndex)
+    };
+    setFormData(prev => ({ ...prev, contentBlocks: updated }));
+  };
+
+  // Elegir el destino del enlace: un artículo de la colección o una URL externa
+  const handleLinkTargetChange = (blockIndex, linkIndex, value) => {
+    const updated = [...formData.contentBlocks];
+    const block = updated[blockIndex];
+    const links = [...(block.links || [])];
+    const current = links[linkIndex] || {};
+
+    if (value === EXTERNAL_LINK) {
+      links[linkIndex] = { type: EXTERNAL_LINK, url: current.url || '' };
+    } else if (!value) {
+      links[linkIndex] = { ...EMPTY_LINK };
+    } else {
+      links[linkIndex] = { type: 'internal', articleId: value };
+    }
+
+    updated[blockIndex] = { ...block, links };
+    setFormData(prev => ({ ...prev, contentBlocks: updated }));
   };
 
   // Selección de imagen: NO sube a S3 inmediatamente. Solo previsualiza localmente y guarda el archivo en memoria.
@@ -187,6 +278,25 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
       alert('Por favor ingresa un Título Principal (H1 STRONG)');
       return;
     }
+
+    // Enlaces del cajón: no se permite guardar con enlaces que apuntan a artículos inexistentes
+    const broken = findBrokenLinks(formData.contentBlocks, articles);
+    if (broken.length > 0) {
+      setLinksMsg(
+        `No se puede guardar: ${broken.length} enlace(s) apuntan a artículos que no existen en la colección. Elige otro destino o quita esa fila.`
+      );
+      return;
+    }
+
+    // Se limpian las filas de enlace vacías antes de guardar
+    const warnings = [];
+    const contentBlocks = formData.contentBlocks.map(block => {
+      if (block.type !== 'links') return block;
+      const result = sanitizeLinksBlock(block, articles);
+      warnings.push(...result.warnings);
+      return result.block;
+    });
+    setLinksMsg(warnings.join(' '));
 
     setIsSubmitting(true);
     setS3ErrorMsg('');
@@ -230,6 +340,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
 
     const updatedArticleData = {
       ...formData,
+      contentBlocks,
       imageUrl: finalImageUrl
     };
 
@@ -331,7 +442,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
             <label className="form-label">
               <span>Secciones y Contenido (&lt;p&gt; y H2 Adicionales)</span>
             </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="content-blocks-actions">
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -347,14 +458,31 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
               >
                 + Párrafo (&lt;p&gt;)
               </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleAddBlock('links')}
+              >
+                <Link2 size={16} />
+                <span>+ Enlaces</span>
+              </button>
             </div>
           </div>
 
           {formData.contentBlocks.map((block, index) => (
             <div key={index} className="block-item">
               <div className="block-header">
-                <span className={`block-type-badge ${block.type === 'h2' ? 'badge-h2' : 'badge-p'}`}>
-                  {block.type === 'h2' ? 'H2 REGULAR' : 'PÁRRAFO <P>'}
+                <span
+                  className={`block-type-badge ${
+                    block.type === 'h2' ? 'badge-h2' : block.type === 'links' ? 'badge-links' : 'badge-p'
+                  }`}
+                >
+                  {block.type === 'h2'
+                    ? 'H2 REGULAR'
+                    : block.type === 'links'
+                      ? 'CAJÓN DE ENLACES'
+                      : 'PÁRRAFO <P>'}
                 </span>
                 <button
                   type="button"
@@ -365,7 +493,88 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
                 </button>
               </div>
 
-              {block.type === 'h2' ? (
+              {block.type === 'links' ? (
+                <div className="links-drawer">
+                  {(block.links || []).map((link, linkIdx) => {
+                    const resolved = resolveLink(link, articles);
+                    const isExternal = !isInternalLink(link);
+
+                    return (
+                      <div key={linkIdx} className="links-drawer-row">
+                        <div className="links-drawer-field">
+                          <select
+                            className="form-select"
+                            value={isExternal ? EXTERNAL_LINK : link.articleId || ''}
+                            onChange={(e) => handleLinkTargetChange(index, linkIdx, e.target.value)}
+                          >
+                            <option value="">Elige el artículo de destino…</option>
+                            {linkTargets.map(t => (
+                              <option key={t.id} value={t.id}>{t.label}</option>
+                            ))}
+                            <option value={EXTERNAL_LINK}>↗ URL externa (fuera de la colección)</option>
+                          </select>
+
+                          {isExternal && (
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder="https://..."
+                              value={link.url || ''}
+                              onChange={(e) => handleLinkChange(index, linkIdx, 'url', e.target.value)}
+                            />
+                          )}
+
+                          {resolved.url && (
+                            <span className="links-drawer-preview">
+                              {resolved.internal ? <Link2 size={12} /> : <ExternalLink size={12} />}
+                              <span>Irá a: {resolved.url}</span>
+                            </span>
+                          )}
+
+                          {resolved.broken && (
+                            <span className="links-drawer-alert">
+                              <AlertTriangle size={12} />
+                              <span>El artículo destino ya no existe en la colección.</span>
+                            </span>
+                          )}
+
+                          {resolved.draft && (
+                            <span className="links-drawer-warn">
+                              <AlertTriangle size={12} />
+                              <span>El destino está en borrador: el lector no lo verá hasta publicarlo.</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="links-drawer-remove"
+                          title="Quitar este enlace del cajón"
+                          onClick={() => handleRemoveLink(index, linkIdx)}
+                        >
+                          <Unlink size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm links-drawer-add"
+                    onClick={() => handleAddLink(index)}
+                  >
+                    <Plus size={16} />
+                    <span>Añadir enlace</span>
+                  </button>
+
+                  {linkTargets.length === 0 && (
+                    <span className="links-drawer-hint">
+                      <FileText size={12} />
+                      <span>Aún no hay otros artículos guardados: crealos en la lista de la derecha para poder enlazarlos.</span>
+                    </span>
+                  )}
+                </div>
+              ) : block.type === 'h2' ? (
                 <input
                   type="text"
                   className="form-input h2-input-style"
@@ -377,7 +586,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
                 <textarea
                   className="form-textarea"
                   rows={3}
-                  placeholder="Escribe el texto del párrafo (<p>)... Puedes incluir enlaces como [guía sobre cómo viajar por Colombia]"
+                  placeholder="Escribe el texto del párrafo (<p>)... Para enlazar a otros artículos usa el botón '+ Cajón de Enlaces'"
                   value={block.text}
                   onChange={(e) => handleBlockChange(index, e.target.value)}
                 />
@@ -386,7 +595,25 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
           ))}
         </div>
 
-        {/* Tags / Etiquetas */}
+        {formData.contentBlocks.some(b => b.type === 'links') && linksMsg && (
+            <div style={{
+              fontSize: '0.82rem',
+              color: '#fbbf24',
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '8px',
+              padding: '10px',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <AlertTriangle size={16} />
+              <span>{linksMsg}</span>
+            </div>
+          )}
+
+          {/* Tags / Etiquetas */}
         <div className="form-group">
           <label className="form-label">
             <TagIcon size={16} />

@@ -11,6 +11,7 @@ import {
   Filter,
   Tag as TagIcon 
 } from 'lucide-react';
+import { linksToMarkdown } from '../utils/links';
 
 export default function ArticleList({ 
   articles, 
@@ -47,6 +48,10 @@ export default function ArticleList({
         else if (b.type === 'list' && Array.isArray(b.items)) {
           b.items.forEach(it => md += `- ${it}\n`);
           md += `\n`;
+        }
+        else if (b.type === 'links' && Array.isArray(b.links)) {
+          const mdLinks = linksToMarkdown(b, articles);
+          if (mdLinks) md += `${mdLinks}\n\n`;
         }
       });
     }

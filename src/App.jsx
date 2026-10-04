@@ -110,6 +110,7 @@ export default function App() {
         <ArticleForm
           key={formKey}
           articleToEdit={editingArticle}
+          articles={articles}
           onSaveArticle={handleSaveArticle}
           onPreviewArticle={(data) => setPreviewArticle(data)}
           onResetForm={handleNewArticle}
@@ -129,6 +130,7 @@ export default function App() {
       {previewArticle && (
         <ArticlePreviewModal
           article={previewArticle}
+          articles={articles}
           onClose={() => setPreviewArticle(null)}
         />
       )}
