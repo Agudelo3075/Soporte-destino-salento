@@ -1,19 +1,76 @@
-import React from 'react';
-import { X, Calendar, User, Tag, Share2, Download, Copy, Check, AlertTriangle } from 'lucide-react';
-import { linksToMarkdown, resolveLinks } from '../utils/links';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Calendar, User, Tag, Copy, Check, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { linksToMarkdown, resolveLinks, isInternalLink } from '../utils/links';
+import { renderInlineMarkdown } from './InlineTextRenderer';
+import { articlePath, slugify } from '../utils/slug';
 
-export default function ArticlePreviewModal({ article, articles = [], onClose }) {
-  const [copied, setCopied] = React.useState(false);
+export default function ArticlePreviewModal({ article, articles = [], onClose, onNavigateArticle = null }) {
+  const [currentArticle, setCurrentArticle] = useState(article);
+  const [history, setHistory] = useState([]);
+  const [copied, setCopied] = useState(false);
+  const modalBodyRef = useRef(null);
 
-  if (!article) return null;
+  // Sincronizar si cambia la prop article desde el exterior
+  useEffect(() => {
+    setCurrentArticle(article);
+    setHistory([]);
+  }, [article]);
+
+  if (!currentArticle) return null;
+
+  // Manejar clic en un enlace de artículo para abrirlo dentro de la previsualización
+  const handleOpenLinkedArticle = (targetArticle, linkUrl, linkText) => {
+    // Si no vino pre-resuelto, buscarlo
+    let resolvedTarget = targetArticle;
+    if (!resolvedTarget && linkUrl) {
+      const cleanUrl = String(linkUrl).trim();
+      const cleanSlug = cleanUrl.replace(/^\//, '');
+      resolvedTarget = articles.find(
+        a =>
+          a.id === cleanUrl ||
+          slugify(a.h1Title) === cleanSlug ||
+          `/${slugify(a.h1Title)}` === cleanUrl ||
+          articlePath(a) === cleanUrl ||
+          (a.h1Title && a.h1Title.toLowerCase().trim() === (linkText || '').toLowerCase().trim())
+      );
+    }
+
+    if (resolvedTarget) {
+      setHistory(prev => [...prev, currentArticle]);
+      setCurrentArticle(resolvedTarget);
+      if (onNavigateArticle) {
+        onNavigateArticle(resolvedTarget);
+      }
+      if (modalBodyRef.current) {
+        modalBodyRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else {
+      alert(`No se encontró el artículo destino para "${linkText || linkUrl}". Es posible que aún no esté guardado en la colección.`);
+    }
+  };
+
+  // Volver al artículo anterior del historial de navegación
+  const handleGoBack = () => {
+    if (history.length > 0) {
+      const previous = history[history.length - 1];
+      setHistory(prev => prev.slice(0, prev.length - 1));
+      setCurrentArticle(previous);
+      if (onNavigateArticle) {
+        onNavigateArticle(previous);
+      }
+      if (modalBodyRef.current) {
+        modalBodyRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
 
   const handleCopyMarkdown = () => {
-    let md = `# ${article.h1Title}\n\n`;
-    if (article.h2Subtitle) md += `## ${article.h2Subtitle}\n\n`;
-    if (article.leadParagraph) md += `${article.leadParagraph}\n\n`;
+    let md = `# ${currentArticle.h1Title}\n\n`;
+    if (currentArticle.h2Subtitle) md += `## ${currentArticle.h2Subtitle}\n\n`;
+    if (currentArticle.leadParagraph) md += `${currentArticle.leadParagraph}\n\n`;
     
-    if (article.contentBlocks) {
-      article.contentBlocks.forEach(b => {
+    if (currentArticle.contentBlocks) {
+      currentArticle.contentBlocks.forEach(b => {
         if (b.type === 'h2') md += `## ${b.text}\n\n`;
         else if (b.type === 'paragraph') md += `${b.text}\n\n`;
         else if (b.type === 'list' && Array.isArray(b.items)) {
@@ -27,12 +84,12 @@ export default function ArticlePreviewModal({ article, articles = [], onClose })
       });
     }
 
-    if (article.tags && article.tags.length > 0) {
-      md += `**Etiquetas:** ${article.tags.join(', ')}\n\n`;
+    if (currentArticle.tags && currentArticle.tags.length > 0) {
+      md += `**Etiquetas:** ${currentArticle.tags.join(', ')}\n\n`;
     }
 
-    if (article.imageUrl) {
-      md += `![${article.imageCaption || 'Imagen'}](${article.imageUrl})\n`;
+    if (currentArticle.imageUrl) {
+      md += `![${currentArticle.imageCaption || 'Imagen'}](${currentArticle.imageUrl})\n`;
     }
 
     navigator.clipboard.writeText(md);
@@ -44,12 +101,30 @@ export default function ArticlePreviewModal({ article, articles = [], onClose })
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>
-            <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Vista Previa de Publicación
-            </span>
-            <h3 style={{ fontSize: '1.1rem', color: 'white' }}>{article.category || 'Destino Salento'}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {history.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleGoBack}
+                title={`Volver a: ${history[history.length - 1].h1Title}`}
+                style={{ padding: '4px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <ArrowLeft size={15} color="#10b981" />
+                <span>Volver</span>
+              </button>
+            )}
+
+            <div>
+              <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Vista Previa de Publicación
+              </span>
+              <h3 style={{ fontSize: '1.1rem', color: 'white', margin: 0 }}>
+                {currentArticle.category || 'Destino Salento'}
+              </h3>
+            </div>
           </div>
+
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-secondary btn-sm" onClick={handleCopyMarkdown}>
               {copied ? <Check size={16} color="#10b981" /> : <Copy size={16} />}
@@ -61,50 +136,90 @@ export default function ArticlePreviewModal({ article, articles = [], onClose })
           </div>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" ref={modalBodyRef}>
           <div className="blog-reader-preview">
+            {/* Banner de navegación si se está viendo un artículo enlazado */}
+            {history.length > 0 && (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.8rem'
+              }}>
+                <span style={{ color: '#d1fae5' }}>
+                  Has navegado aquí desde: <strong>"{history[history.length - 1].h1Title}"</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGoBack}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#34d399',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.78rem',
+                    fontWeight: 600
+                  }}
+                >
+                  ← Regresar al artículo anterior
+                </button>
+              </div>
+            )}
+
             {/* H1 STRONG */}
-            <h1 className="preview-h1">{article.h1Title}</h1>
+            <h1 className="preview-h1">{currentArticle.h1Title}</h1>
 
             {/* H2 REGULAR */}
-            {article.h2Subtitle && (
+            {currentArticle.h2Subtitle && (
               <h2 className="preview-h2" style={{ border: 'none', color: '#d1d5db', fontSize: '1.15rem', fontWeight: 500, marginTop: 0 }}>
-                {article.h2Subtitle}
+                {currentArticle.h2Subtitle}
               </h2>
             )}
 
             {/* Meta bar */}
             <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', margin: '16px 0 24px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <User size={14} /> {article.author || 'Equipo Soporte Destino Salento'}
+                <User size={14} /> {currentArticle.author || 'Equipo Soporte Destino Salento'}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Calendar size={14} /> {article.createdAt || '2026-09-29'}
+                <Calendar size={14} /> {currentArticle.createdAt || '2026-09-29'}
               </span>
             </div>
 
             {/* Related Image */}
-            {article.imageUrl && (
+            {currentArticle.imageUrl && (
               <div className="preview-image-container">
-                <img src={article.imageUrl} alt={article.imageCaption || article.h1Title} className="preview-image" />
-                {article.imageCaption && (
-                  <p className="preview-caption">{article.imageCaption}</p>
+                <img src={currentArticle.imageUrl} alt={currentArticle.imageCaption || currentArticle.h1Title} className="preview-image" />
+                {currentArticle.imageCaption && (
+                  <p className="preview-caption">{currentArticle.imageCaption}</p>
                 )}
               </div>
             )}
 
-            {/* Lead Paragraph <p> */}
-            {article.leadParagraph && (
-              <p className="preview-lead">{article.leadParagraph}</p>
+            {/* Lead Paragraph <p> con enlaces inline interactivos */}
+            {currentArticle.leadParagraph && (
+              <p className="preview-lead">
+                {renderInlineMarkdown(currentArticle.leadParagraph, articles, handleOpenLinkedArticle)}
+              </p>
             )}
 
-            {/* Content Blocks (H2 and Paragraphs) */}
-            {article.contentBlocks && article.contentBlocks.map((block, idx) => {
+            {/* Content Blocks (H2 and Paragraphs) con enlaces inline interactivos */}
+            {currentArticle.contentBlocks && currentArticle.contentBlocks.map((block, idx) => {
               if (block.type === 'h2') {
                 return <h2 key={idx} className="preview-h2">{block.text}</h2>;
               }
               if (block.type === 'paragraph') {
-                return <p key={idx} style={{ marginBottom: '16px', lineHeight: '1.7', color: '#e5e7eb' }}>{block.text}</p>;
+                return (
+                  <p key={idx} style={{ marginBottom: '16px', lineHeight: '1.7', color: '#e5e7eb' }}>
+                    {renderInlineMarkdown(block.text, articles, handleOpenLinkedArticle)}
+                  </p>
+                );
               }
               if (block.type === 'list' && Array.isArray(block.items)) {
                 return (
@@ -129,7 +244,17 @@ export default function ArticlePreviewModal({ article, articles = [], onClose })
                               Enlace roto: el artículo destino no existe ({link.missingId})
                             </span>
                           ) : (
-                            <a href={link.url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={link.url}
+                              title={`Abrir artículo: ${link.text}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const target = articles.find(
+                                  a => a.id === link.targetId || articlePath(a) === link.url
+                                );
+                                handleOpenLinkedArticle(target, link.url, link.text);
+                              }}
+                            >
                               {link.text}
                             </a>
                           )}
@@ -146,12 +271,12 @@ export default function ArticlePreviewModal({ article, articles = [], onClose })
             })}
 
             {/* Tags */}
-            {article.tags && article.tags.length > 0 && (
+            {currentArticle.tags && currentArticle.tags.length > 0 && (
               <div className="preview-tags-list">
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>
                   <Tag size={16} /> Etiquetas:
                 </span>
-                {article.tags.map((t, idx) => (
+                {currentArticle.tags.map((t, idx) => (
                   <span key={idx} className="tag-pill" style={{ fontSize: '0.78rem' }}>
                     #{t}
                   </span>

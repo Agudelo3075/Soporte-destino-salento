@@ -132,6 +132,7 @@ export default function App() {
           article={previewArticle}
           articles={articles}
           onClose={() => setPreviewArticle(null)}
+          onNavigateArticle={(art) => setPreviewArticle(art)}
         />
       )}
 

@@ -26,6 +26,7 @@ import {
   ExternalLink,
   AlertTriangle
 } from 'lucide-react';
+import InlineParagraphEditor from './InlineParagraphEditor';
 import { uploadFileToS3, deleteFileFromS3, getS3ConfigStatus } from '../utils/s3Upload';
 import {
   EXTERNAL_LINK,
@@ -426,13 +427,14 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
             <AlignLeft size={16} />
             <span>Párrafo Principal (&lt;p&gt; Introducción)</span>
           </label>
-          <textarea
+          <InlineParagraphEditor
             name="leadParagraph"
-            className="form-textarea"
             rows={4}
-            placeholder="El Eje Cafetero Colombiano se destaca por sus imponentes montañas y por la oportunidad de vivir una verdadera experiencia de descanso..."
+            placeholder="El Eje Cafetero Colombiano se destaca por sus imponentes montañas... Escribe @ para enlazar artículos dentro del párrafo"
             value={formData.leadParagraph}
-            onChange={handleInputChange}
+            onChange={(val) => setFormData(prev => ({ ...prev, leadParagraph: val }))}
+            articles={articles}
+            currentArticleId={formData.id}
           />
         </div>
 
@@ -462,10 +464,11 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
+                title="Cajón de enlaces destacados al final de la publicación (opcional)"
                 onClick={() => handleAddBlock('links')}
               >
                 <Link2 size={16} />
-                <span>+ Enlaces</span>
+                <span>+ Cajón de Enlaces</span>
               </button>
             </div>
           </div>
@@ -481,7 +484,7 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
                   {block.type === 'h2'
                     ? 'H2 REGULAR'
                     : block.type === 'links'
-                      ? 'CAJÓN DE ENLACES'
+                      ? 'CAJÓN DE ENLACES AL PIE'
                       : 'PÁRRAFO <P>'}
                 </span>
                 <button
@@ -583,12 +586,13 @@ export default function ArticleForm({ articleToEdit, onSaveArticle, onPreviewArt
                   onChange={(e) => handleBlockChange(index, e.target.value)}
                 />
               ) : (
-                <textarea
-                  className="form-textarea"
+                <InlineParagraphEditor
                   rows={3}
-                  placeholder="Escribe el texto del párrafo (<p>)... Para enlazar a otros artículos usa el botón '+ Cajón de Enlaces'"
+                  placeholder="Escribe el texto del párrafo (<p>)... Puedes escribir @ o usar 'Añadir enlace' para vincular artículos aquí mismo"
                   value={block.text}
-                  onChange={(e) => handleBlockChange(index, e.target.value)}
+                  onChange={(val) => handleBlockChange(index, val)}
+                  articles={articles}
+                  currentArticleId={formData.id}
                 />
               )}
             </div>
